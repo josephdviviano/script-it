@@ -349,7 +349,7 @@ def check_match(a, b):
     Checks if prerequisite a matches any item in b, ignoring cases.
     """
     for item in b:
-        r = re.compile('^{}'.format(a.lower().replace('*','+')))
+        r = re.compile('^{}'.format(a.lower().replace('*','.*')))
         if r.match(item.lower()):
             return
 
@@ -369,8 +369,6 @@ def check_prerequisites(prerequisites, usedModules):
         try:
             check_match(prereq, usedModules)
         except:
-            print('Prerequisites:')
-            print_list(prerequisites)
             raise
 
 def parse(module, usedModules=[], outputFiles=[], verbose=False):
