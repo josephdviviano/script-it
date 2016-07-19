@@ -441,7 +441,7 @@ def parse(module, usedModules=[], outputFiles=[], verbose=False):
             else:
                 raise SyntaxError('ERROR: malformed option found in module {} header.'.format(moduleName))
 
-            if response:
+            if response is not None:
                 command = '{} {}'.format(command, response)
             else:
                 raise ValueError
