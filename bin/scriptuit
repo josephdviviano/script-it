@@ -347,7 +347,6 @@ def clean(script):
         if others:
             remove.extend(others)
 
-    print(remove)
     remove = (list(set(remove))) # not sure if i need this any longer...
     remove.sort()
 

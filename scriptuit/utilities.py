@@ -354,7 +354,7 @@ def check_match(a, b):
             return
 
     # if we get this far, nothing was matched
-    raise ValueError('ERROR: prerequisite {} not met'.format(a))
+    raise
 
 def check_prerequisites(prerequisites, usedModules):
     """
@@ -369,7 +369,7 @@ def check_prerequisites(prerequisites, usedModules):
         try:
             check_match(prereq, usedModules)
         except:
-            raise
+            raise ValueError('ERROR: prerequisite {} not met'.format(prereq))
 
 def parse(module, usedModules=[], outputFiles=[], verbose=False):
     """
@@ -403,7 +403,7 @@ def parse(module, usedModules=[], outputFiles=[], verbose=False):
     if prereq:
         try:
             check_prerequisites(prereq, usedModules)
-        except:
+        except ValueError as err:
             raise
 
     # get the input name from the last item in the used list
