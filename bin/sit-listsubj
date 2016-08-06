@@ -6,8 +6,8 @@ Usage:
     sit-subjlist <directory>
 """
 import os
-import scriptuit as sit
-from scriptuit.docopt import docopt
+import scriptit as sit
+from scriptit.docopt import docopt
 
 def main():
     arguments = docopt(__doc__)

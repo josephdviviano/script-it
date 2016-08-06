@@ -1,6 +1,6 @@
-![scriptuit](assets/logo.png "scriptuit: a platform for BASH pipeline development")
+![script-it](assets/logo.png "script-it: a platform for BASH pipeline development")
 
-scriptuit is an environment for developing pipelines out of BASH 'modules'. It is intended to produce portable BASH analysis scripts out of small code chunks that non-programmers can contribute.
+script-it is an environment for developing pipelines out of BASH 'modules'. It is intended to produce portable BASH analysis scripts out of small code chunks that non-programmers can contribute.
 
 Written by Joseph D. Viviano 2014-16.
 
@@ -14,18 +14,18 @@ Written by Joseph D. Viviano 2014-16.
 
 Setup
 -----
-scriptuit depends on python > 2.6. The scripts it generates likely rely on external pacakges.
+script-it depends on python > 2.6. The scripts it generates likely rely on external pacakges.
 
 Quickstart:
 
 + `git clone` this repository to a directory of your choosing.
-+ Add `scriptuit/bin` to your PATH.
-+ Add `scriptuit` to your PYTHONPATH.
++ Add `script-it/bin` to your PATH.
++ Add `script-it` to your PYTHONPATH.
 + Create a data directory somewhere, and add some data.
-+ Set `SCRIPTUIT_DATA` to point to your data folder.
-+ Set `SCRIPTUIT_MODULES` to point to a folder containing scriptuit modules.
-+ Generate a master script using `scriptuit generate`.
-+ Render a final BASH script using `scriptuit render masterscript output`
++ Set `script-it_DATA` to point to your data folder.
++ Set `script-it_MODULES` to point to a folder containing script-it modules.
++ Generate a master script using `script-it generate`.
++ Render a final BASH script using `script-it render masterscript output`
 
 Optional:
 
@@ -33,21 +33,21 @@ Optional:
 
 Introduction
 ------------
-scriptuit platform for developing BASH pipelines with a focus on rapid prototyping and ease of reproducibility. It was designed primarily with the needs of experimental researchers in mind. It is able to intelligently chain together BASH modules with a specially formatted header in any way the user desires to create a script for analysing data.
+script-it platform for developing BASH pipelines with a focus on rapid prototyping and ease of reproducibility. It was designed primarily with the needs of experimental researchers in mind. It is able to intelligently chain together BASH modules with a specially formatted header in any way the user desires to create a script for analysing data.
 
-scriptuit facilitates the construction of scripts that can be run on your computer or in a distributed computing environment by only answering a few high-level questions. These 'recipes' are stored as compact and easy-to-read master scripts. Scriptuit can be used to render a master script to fully self-contained BASH script for portability or further tweaking. In this way, scriptuit acts as your lab notebook, and it's outputs can be shared with collaborators or reviewers.
+script-it facilitates the construction of scripts that can be run on your computer or in a distributed computing environment by only answering a few high-level questions. These 'recipes' are stored as compact and easy-to-read master scripts. script-it can be used to render a master script to fully self-contained BASH script for portability or further tweaking. In this way, script-it acts as your lab notebook, and it's outputs can be shared with collaborators or reviewers.
 
 Modules
 -------
-Modules take the form of BASH scripts with a special header format. They are active so long as they are kept in the `SCRIPTUIT_MODULES` directory.
+Modules take the form of BASH scripts with a special header format. They are active so long as they are kept in the `script-it_MODULES` directory.
 
-A scriptuit module has the following in it's header:
+A script-it module has the following in it's header:
 
     #!/bin/bash
     #
     # module_name input list_variable float_variable int_variable
     #
-    # input:          input prefix, to find input files. auto-determined by scriptuit
+    # input:          input prefix, to find input files. auto-determined by script-it
     # list_variable:  a list of strings for the user to select from [list: apples banannas oranges]
     # float_variable: a number (allows for decimals). [float]
     # int_variable:   a number (no decimals) [int]
@@ -62,7 +62,7 @@ A scriptuit module has the following in it's header:
     float_variable=${3}
     int_variable=${4}
 
-scriptuit reads this header in order to ask the user reasonable questions on how to configure this particular module. It finally executes this module with the command line values filled in appropriately. Note that since this module is normal bash, one can execute a module without ever going through the scriptuit interface.
+script-it reads this header in order to ask the user reasonable questions on how to configure this particular module. It finally executes this module with the command line values filled in appropriately. Note that since this module is normal bash, one can execute a module without ever going through the script-it interface.
 
 Here's a walk through of the various header components:
 
@@ -74,14 +74,14 @@ This line contains the name of the module (the file name of the module must matc
 
 **arguments**
 
-    # input:          input prefix, to find input files. auto-determined by scriptuit
+    # input:          input prefix, to find input files. auto-determined by script-it
     # list_variable:  a list of strings for the user to select from [list: apples banannas oranges ?]
     # float_variable: a number (allows for decimals). [float]
     # int_variable:   a number (no decimals) [int]
 
-Here, we see the 4 arguments available in scriptuit.
+Here, we see the 4 arguments available in script-it.
 
-+ `input` is a special argument in scriptuit. It is automatically filled by the `output` prefix of the previous module. Therefore, any module with an input argument should be a mid-stage module. scriptuit modules that are run at the beginning of the pipelines should not have an `input` argument, and should copy files from the `RUNXX` folder.
++ `input` is a special argument in script-it. It is automatically filled by the `output` prefix of the previous module. Therefore, any module with an input argument should be a mid-stage module. script-it modules that are run at the beginning of the pipelines should not have an `input` argument, and should copy files from the `RUNXX` folder.
 
 + `list_variable` is a case where the user should select from a set of pre-defined, or custom, strings. The `[list: x y z ?]` syntax at the end of the line is a space-delimited list of the options to be presented to the user. `?` is a special case, that if selected asks the user to enter a custom string.
 
@@ -96,7 +96,7 @@ Each argument in the usage line must have an line under arguments, otherwise the
     # output: example_output
     # prereq: init_pipeline
 
-Here, we see the output prefix (the first part of the filename of the main outputs from this module) and the prerequisite modules, by filename. scriptuit uses the output prefix here to auto-fill the `input` argument for downstream modules. It also ensures that the prerequisite modules have been run.
+Here, we see the output prefix (the first part of the filename of the main outputs from this module) and the prerequisite modules, by filename. script-it uses the output prefix here to auto-fill the `input` argument for downstream modules. It also ensures that the prerequisite modules have been run.
 
 In this case, init_pipeline is used to copy the files in the RUN folders to the SESS folder with a known file prefix, so that the `example` module know what the input prefix is.
 
@@ -113,7 +113,7 @@ This is simply usage instructions for the user. Please write this.
     float_variable=${3}
     int_variable=${4}
 
-When your scriptuit module is executed, the values selected will be assigned to the BASH variables here. The number of, and names of, these variables should match those in the usage line.
+When your script-it module is executed, the values selected will be assigned to the BASH variables here. The number of, and names of, these variables should match those in the usage line.
 
 **module anatomy**
 
@@ -140,9 +140,9 @@ Finally, variables can be defined within the module to allow the user to set the
 
 Data
 ----
-scriptuit comes with a few command-line interfaces. These interfaces rely on a basic folder structure:
+script-it comes with a few command-line interfaces. These interfaces rely on a basic folder structure:
 
-    /`SCRIPTUIT_DATA`
+    /`script-it_DATA`
         /EXPERIMENTS
             /SUBJECTS
                 /MODE
@@ -172,47 +172,47 @@ The run folders are used to separate data taken at the same time point. For exam
 
 Usage
 -----
-**scriptuit generate**
+**script-it generate**
 
 This walks you through the construction of a pipeline for a single image modality within a single experiment. The command line interface allows you to chain together modules, keeping track of inputs/outputs, and the prerequisites for each module.
 
-The modules used are determined by the current `SCRIPTUIT_MODULES` environment variable. You can use this to manage multiple parallel sets of modules. This is useful if you want to maintain a working legacy copy the scripts you used to a particular publication.
+The modules used are determined by the current `script-it_MODULES` environment variable. You can use this to manage multiple parallel sets of modules. This is useful if you want to maintain a working legacy copy the scripts you used to a particular publication.
 
-Each run of scriptuit is associated with an `ID`. This allows you to keep different streams of your pipeline seperate. This is useful if you are testing out multiple processing strategies on your data. `ID` is a variable made available within each of your modules, so you can put it somewhere in your output file names.
+Each run of script-it is associated with an `ID`. This allows you to keep different streams of your pipeline seperate. This is useful if you are testing out multiple processing strategies on your data. `ID` is a variable made available within each of your modules, so you can put it somewhere in your output file names.
 
 This generates a single master script with your modules chained together in order after you issue the stop command. This master script can be used to generate full rendered scripts for each participant, or can be used to analyze your data.
 
-**scriptuit render**
+**script-it render**
 
 This 'renders' or hard-codes the settings defined in the master script to an output file using the following syntax:
 
-    scriptuit render masterScript output.sh
+    script-it render masterScript output.sh
 
-This script will be completely independent from scriptuit and is therefore a portable pipeline that can be shared with others, or used to process your data.
+This script will be completely independent from script-it and is therefore a portable pipeline that can be shared with others, or used to process your data.
 
-**scriptuit clean**
+**script-it clean**
 
 Allows you to find and destroy files with a given prefix, for all, or some of your subjects.
 
-**scriptuit list**
+**script-it list**
 
-Prints a list of the modules found in `SCRIPTUIT_MODULES`.
+Prints a list of the modules found in `script-it_MODULES`.
 
-**scriptuit help modulename**
+**script-it help modulename**
 
 Prints the help for the selected module.
 
-**scriptuit check setup**
+**script-it check setup**
 
 Checks your installation paths for errors, and reports on any misconfiguration.
 
-**scriptuit check inputs**
+**script-it check inputs**
 
-Checks your `SCRIPTUIT_DATA` folder for errors in folder structure and missing input files.
+Checks your `script-it_DATA` folder for errors in folder structure and missing input files.
 
 **sit-folder**
 
-This simple tool will help you generate folders properly-formatted for scriptuit. It is run on a per-subject basis, but a clever user could manually duplicate a single folder structure for as many participants as needed. These folders will automatically be generated in the designated working directory.
+This simple tool will help you generate folders properly-formatted for script-it. It is run on a per-subject basis, but a clever user could manually duplicate a single folder structure for as many participants as needed. These folders will automatically be generated in the designated working directory.
 
 **sit-queue**
 

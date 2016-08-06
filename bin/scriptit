@@ -1,25 +1,25 @@
 #!/usr/bin/env python
 """
-     _  _  _ .  _  |_     . |_  | a platform for bash pipeline development
-    _) (_ |  | |_) |_ |_| | |_  | github.com/josephdviviano/scriptuit
-               |                |
+     _  _  _ .  _  |_   . |_  | a platform for bash pipeline development
+    _) (_ |  | |_) |_ - | |_  | github.com/josephdviviano/script-it
+               |              |
 
-    scriptuit list                 -- lists all available modules
-    scriptuit help module          -- prints help for module
-    scriptuit check setup          -- checks installation
-    scriptuit check inputs         -- checks input files for experiment
-    scriptuit generate             -- generate master script
-    scriptuit render script output -- render master script to output script
-    scriptuit clean                -- delete output files
+    scriptit list                 -- lists all available modules
+    scriptit help module          -- prints help for module
+    scriptit check setup          -- checks installation
+    scriptit check inputs         -- checks input files for experiment
+    scriptit generate             -- generate master script
+    scriptit render script output -- render master script to output script
+    scriptit clean                -- delete output files
 """
 import os, sys, stat
 from copy import copy
-import scriptuit as sit
+import scriptit as sit
 from fnmatch import fnmatch
 import textwrap
 
-DIR_DATA = os.getenv('SCRIPTUIT_DATA')
-DIR_MODULES = os.getenv('SCRIPTUIT_MODULES')
+DIR_DATA = os.getenv('SCRIPTIT_DATA')
+DIR_MODULES = os.getenv('SCRIPTIT_MODULES')
 CLEARSCREEN = chr(27) + "[2J"
 
 def get_modules(interactive=False, used=None):
@@ -28,7 +28,7 @@ def get_modules(interactive=False, used=None):
     these are stripped from the output.
     """
     if not DIR_MODULES:
-        sys.exit('ERROR: Environment variable SCRIPTUIT_MODULES not defined.')
+        sys.exit('ERROR: Environment variable SCRIPTIT_MODULES not defined.')
 
     module_list = [f for f in os.listdir(DIR_MODULES)
                            if os.path.isfile(os.path.join(DIR_MODULES, f))]
@@ -61,7 +61,7 @@ def get_mode(expt):
     select one.
     """
     if not DIR_DATA:
-        sys.exit('ERROR: Environment variable SCRIPTUIT_DATA not defined.')
+        sys.exit('ERROR: Environment variable SCRIPTIT_DATA not defined.')
 
     # get a sorted list of the experiments
     expt = os.path.join(DIR_DATA, expt)
@@ -130,20 +130,20 @@ def check_environment(mode='verbose'):
     """
 
     if DIR_DATA == None:
-        sys.exit('ERROR: SCRIPTUIT_DATA variable is not set.')
+        sys.exit('ERROR: SCRIPTIT_DATA variable is not set.')
     if os.path.isdir(DIR_DATA) == False:
-        sys.exit('ERROR: scriptuit data directory does not exist: {}'.format(DIR_DATA))
+        sys.exit('ERROR: scriptit data directory does not exist: {}'.format(DIR_DATA))
     if sit.utilities.has_permissions(DIR_DATA) == False:
         sys.exit("ERROR: no write permissions for {}".format(DIR_DATA))
 
     if DIR_MODULES == None:
-        sys.exit('ERROR: SCRIPTUIT_MODULES variable is not set')
+        sys.exit('ERROR: SCRIPTIT_MODULES variable is not set')
     if os.path.isdir(DIR_MODULES) == False:
-        sys.exit('ERROR: scriptuit modules directory does not exist: {}'.format(DIR_MODULES))
+        sys.exit('ERROR: scriptit modules directory does not exist: {}'.format(DIR_MODULES))
 
-    # format uses global variables defined at top of scriptuit
+    # format uses global variables defined at top of scriptit
     if mode == 'verbose':
-        print('scriptuit configuration:\n'
+        print('scriptit configuration:\n'
               '    data directory   : {DIR_DATA}\n'
               '    module directory : {DIR_MODULES}\n'.format(
                                        DIR_DATA=DIR_DATA, DIR_MODULES=DIR_MODULES))
@@ -272,7 +272,7 @@ def parse_master(script):
                            if os.path.isfile(os.path.join(DIR_MODULES, f))]
 
     # return the modules defined in the master script that are ALSO in the
-    # SCRIPTUIT_MODULES folder
+    # SCRIPTIT_MODULES folder
     moduleList.sort()
     foundModules = []
     for line in masterData:
@@ -287,7 +287,7 @@ def parse_master(script):
 
 def clean(script):
     """
-    Removes stages of a scriptuit pipeline.
+    Removes stages of a script-it pipeline.
     """
     sit.utilities.check_os()
     check_environment('quiet')
@@ -298,8 +298,6 @@ def clean(script):
     expt = sit.utilities.get_line(masterData, 'DIR_EXPT')[0]
     mode = sit.utilities.get_line(masterData, 'DATA_TYPE')[0]
     #ID = sit.utilities.get_line(masterData, 'ID')[0] # ignore ID for now, ID to depricate?
-
-    print('scriptuit clean: this deletes data.')
 
     # get the subjects
     print('clean all subjects, or some?')
@@ -373,7 +371,7 @@ def render(script, output):
     print('rendering master script {} to output {}'.format(script, output))
     f = open(output, 'wb')
     f.write('#!/bin/bash\n\n'
-            '# rendered scriptuit from {script}\n'
+            '# rendered script-it from {script}\n'
             '# generated: {datetime} by {user}.\n\n'
             'set -e\n\n'
             'export DIR_MODULES={DIR_MODULES}\n'
@@ -396,7 +394,7 @@ def render(script, output):
                 DATA_TYPE=sit.utilities.get_line(masterData, 'DATA_TYPE')[0],
                 ID=sit.utilities.get_line(masterData, 'ID')[0]))
 
-    # now, copy the contents of each scriptuit module to output, sans header
+    # now, copy the contents of each script-it module to output, sans header
     for module in foundModules:
         for line in masterData:
             moduleBody = None # default value, if no module is found
@@ -437,7 +435,7 @@ def generate():
         sys.exit()
 
     # get the date and time, current user, f_id, set dir_pipe to be local
-    print('\nmodality: {}\ninput ID for this run of scriptuit:'.format(mode))
+    print('\nmodality: {}\ninput ID for this run of scriptit:'.format(mode))
     ID = raw_input('ID: ')
     ID = sit.utilities.mangle_string(ID)
     master = 'master_{}_{}.sh'.format(f_id, ID)
@@ -445,7 +443,7 @@ def generate():
     print('\ninitializing master script.')
     f = open(os.path.join(DIR_DATA, expt, master), 'wb')
     f.write('#!/bin/bash\n\n'
-            '# master scriptuit for {expt}: {mode}.\n'
+            '# master scriptit for {expt}: {mode}.\n'
             '# generated: {datetime} by {user}.\n\n'
             'DIR_MODULES={DIR_MODULES}\n'
             'DIR_DATA={DIR_DATA}\n'

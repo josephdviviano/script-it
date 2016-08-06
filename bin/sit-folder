@@ -15,7 +15,7 @@ DETAILS
 """
 
 import os, sys
-import scriptuit as sit
+import scriptit as sit
 from scriptuit.docopt import docopt
 from copy import copy
 
