@@ -13,6 +13,7 @@
     scriptit clean                -- delete output files
 """
 import os, sys, stat
+import logging
 from copy import copy
 import scriptit as sit
 from fnmatch import fnmatch
@@ -22,13 +23,17 @@ DIR_DATA = os.getenv('SCRIPTIT_DATA')
 DIR_MODULES = os.getenv('SCRIPTIT_MODULES')
 CLEARSCREEN = chr(27) + "[2J"
 
+logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(os.path.basename(__file__))
+
 def get_modules(interactive=False, used=None):
     """
     Prints the available modules. If provided with a list of 'used' modules,
     these are stripped from the output.
     """
     if not DIR_MODULES:
-        sys.exit('ERROR: Environment variable SCRIPTIT_MODULES not defined.')
+        logger.error('ERROR: Environment variable SCRIPTIT_MODULES not defined.')
+        sys.exit(1)
 
     module_list = [f for f in os.listdir(DIR_MODULES)
                            if os.path.isfile(os.path.join(DIR_MODULES, f))]
@@ -49,7 +54,7 @@ def get_modules(interactive=False, used=None):
             return selection, used
 
         except:
-            raise ValueError('ERROR: Invalid selection')
+            raise ValueError('invalid selection')
 
     else:
         print('modules available in {}:\n'.format(DIR_MODULES))
@@ -61,7 +66,8 @@ def get_mode(expt):
     select one.
     """
     if not DIR_DATA:
-        sys.exit('ERROR: Environment variable SCRIPTIT_DATA not defined.')
+        logger.error('environment variable SCRIPTIT_DATA not defined.')
+        sys.exit(1)
 
     # get a sorted list of the experiments
     expt = os.path.join(DIR_DATA, expt)
@@ -87,7 +93,8 @@ def get_experiments(check=None):
     one.
     """
     if sit.utilities.has_permissions(DIR_DATA) == False:
-        sys.exit('ERROR: You do not have write permission to {}'.format(DIR_DATA))
+        logger.error('ERROR: You do not have write permission to {}'.format(DIR_DATA))
+        sys.exit(1)
 
     # get a sorted list of the experiments
     expt_list = [d for d in os.listdir(DIR_DATA)
@@ -128,32 +135,35 @@ def check_environment(mode='verbose'):
     """
     Checks manditory environent variables and exits if they defined improperly.
     """
+    failed = False
 
     if DIR_DATA == None:
-        sys.exit('ERROR: SCRIPTIT_DATA variable is not set.')
+        logger.error('SCRIPTIT_DATA variable is not set.')
+        failed = True
     if os.path.isdir(DIR_DATA) == False:
-        sys.exit('ERROR: scriptit data directory does not exist: {}'.format(DIR_DATA))
+        logger.error('scriptit data directory does not exist: {}'.format(DIR_DATA))
+        failed = True
     if sit.utilities.has_permissions(DIR_DATA) == False:
-        sys.exit("ERROR: no write permissions for {}".format(DIR_DATA))
+        logger.error("no write permissions for {}".format(DIR_DATA))
+        failed = True
 
     if DIR_MODULES == None:
-        sys.exit('ERROR: SCRIPTIT_MODULES variable is not set')
+        logger.error('SCRIPTIT_MODULES variable is not set')
+        failed = True
     if os.path.isdir(DIR_MODULES) == False:
-        sys.exit('ERROR: scriptit modules directory does not exist: {}'.format(DIR_MODULES))
+        logger.error('scriptit modules directory does not exist: {}'.format(DIR_MODULES))
+        failed = True
+
+    if failed:
+        sys.exit(1)
 
     # format uses global variables defined at top of scriptit
     if mode == 'verbose':
-        print('scriptit configuration:\n'
-              '    data directory   : {DIR_DATA}\n'
-              '    module directory : {DIR_MODULES}\n'.format(
-                                       DIR_DATA=DIR_DATA, DIR_MODULES=DIR_MODULES))
+        print('scriptit config:\n       DIR_DATA: {}\n    DIR_MODULES: {}\n'.format(DIR_DATA, DIR_MODULES))
 
 def check_run(expt, subj, mode, sess, run):
     """
     Returns True if RUN folder contains a NIFTI file, False otherwise.
-
-    Usage:
-        truth = check_run(experiment, subject, image modality, session, run)
     """
     # retrieve the number of files within each run folder
     dir_file = os.path.join(DIR_DATA, expt, subj, mode, sess, run)
@@ -162,9 +172,7 @@ def check_run(expt, subj, mode, sess, run):
 
     n_files = filter(lambda x: x[-7:] == '.nii.gz' or
                                x[-4:] == '.nii', file_list)
-    n_files = len(n_files)
-
-    return n_files
+    return len(n_files)
 
 def check_mode(expt, subj, mode):
     """
@@ -211,7 +219,7 @@ def check_directories(expt):
     try:
         subjects = sit.utilities.get_subj(os.path.join(DIR_DATA, expt))
     except:
-        print('ERROR: experiment path is incorrect {}'.format(expt))
+        logger.error('experiment path is incorrect {}'.format(expt))
 
     # this dict will hold our count
     mode_dict = {}
@@ -265,7 +273,8 @@ def parse_master(script):
         assert sit.utilities.get_line(masterData, 'DATA_TYPE'), 'ERROR: DATA_TYPE not defined.'
         assert sit.utilities.get_line(masterData, 'ID'), 'ERROR: ID not defined.'
     except AssertionError as err:
-        sys.exit(err)
+        logger.error(err)
+        sys.exit(1)
 
     # verify we have at least one module defined that is also in DIR_MODULES
     moduleList = [f for f in os.listdir(DIR_MODULES)
@@ -281,7 +290,8 @@ def parse_master(script):
                 foundModules.append(m)
 
     if len(foundModules) == 0:
-        sys.exit('ERROR: No modules in {} are defined in {}'.format(DIR_MODULES, script))
+        logger.error('no modules in {} are defined in {}'.format(DIR_MODULES, script))
+        sys.exit(1)
 
     return masterData, foundModules
 
@@ -498,19 +508,28 @@ def generate():
 
 if __name__ == "__main__":
 
-    if len(sys.argv) == 2 and sys.argv[1] == 'list':
+    logging.info('Starting')
+
+    # debug handling
+    if sys.argv[-1] == '--debug':
+        nargs = len(sys.argv) - 1
+        logger.setLevel(logging.DEBUG)
+    else:
+        nargs = len(sys.argv)
+
+    if nargs == 2 and sys.argv[1] == 'list':
         get_modules()
-    elif len(sys.argv) == 3 and sys.argv[1] == 'help':
+    elif nargs == 3 and sys.argv[1] == 'help':
         get_help(sys.argv[2])
-    elif len(sys.argv) == 3 and sys.argv[1] == 'check' and sys.argv[2] == 'setup':
+    elif nargs == 3 and sys.argv[1] == 'check' and sys.argv[2] == 'setup':
         check_environment('verbose')
-    elif len(sys.argv) == 3 and sys.argv[1] == 'check' and sys.argv[2] == 'inputs':
+    elif nargs == 3 and sys.argv[1] == 'check' and sys.argv[2] == 'inputs':
         get_experiments(check='check')
-    elif len(sys.argv) == 2 and sys.argv[1] == 'generate':
+    elif nargs == 2 and sys.argv[1] == 'generate':
         generate()
-    elif len(sys.argv) == 4 and sys.argv[1] == 'render':
+    elif nargs == 4 and sys.argv[1] == 'render':
         render(sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 3 and sys.argv[1] == 'clean':
+    elif nargs == 3 and sys.argv[1] == 'clean':
         clean(sys.argv[2])
     else:
         print(__doc__)
