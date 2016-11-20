@@ -437,7 +437,8 @@ def generate():
     if expt == 'stop':
         sys.exit()
     if sit.utilities.has_permissions(os.path.join(DIR_DATA, expt)) == False:
-        sys.exit("You do not have permission to write in {}".format(os.path.join(DIR_DATA, expt)))
+        logger.error("You do not have permission to write in {}".format(os.path.join(DIR_DATA, expt)))
+        sys.exit(1)
 
     print('\nexperiment: {}\nselect modality:'.format(expt))
     mode = get_loop(get_mode, expt)
@@ -447,7 +448,9 @@ def generate():
     # get the date and time, current user, f_id, set dir_pipe to be local
     print('\nmodality: {}\ninput ID for this run of scriptit:'.format(mode))
     ID = raw_input('ID: ')
+    logger.debug('ID before mangling: {}'.format(ID))
     ID = sit.utilities.mangle_string(ID)
+    logger.debug('ID after mangling: {}'.format(ID))
     master = 'master_{}_{}.sh'.format(f_id, ID)
 
     print('\ninitializing master script.')
@@ -471,15 +474,16 @@ def generate():
     while not flag:
 
         print('\nselect the next pipeline module:')
+        logger.debug('pre-module selection:\n    module={}, usedModules={}'.format(module, usedModules))
         try:
             module, usedModules = get_modules(interactive=True, used=usedModules)
         except:
             continue
 
+        logger.debug('post-module selection:\n    module={}, usedModules={}'.format(module, usedModules))
         if not module:
             continue
-
-        if module == 'stop':
+        elif module == 'stop':
             flag = True
             continue
 
@@ -491,7 +495,7 @@ def generate():
             if len(usedModules) > 0:
                 usedModules.pop() # remove last module from the used list
             print(CLEARSCREEN)
-            print(err)
+            logger.error(err)
             continue
 
         print('\nCurrent pre-processing pipeline:')
