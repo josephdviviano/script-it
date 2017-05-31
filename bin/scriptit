@@ -470,6 +470,7 @@ def generate():
     usedModules = [] # keeps track of the modules run
     outputFiles = [] # keeps track of each module's output
     flag = False
+    module = None    # placeholder to keep debug happy
 
     while not flag:
 
