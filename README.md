@@ -2,7 +2,7 @@
 
 script-it is an environment for developing pipelines out of BASH 'modules'. It is intended to produce portable BASH analysis scripts out of small code chunks that non-programmers can contribute.
 
-Written by Joseph D. Viviano 2014-16.
+Written by Joseph D. Viviano 2016.
 
 **Shortcuts:**
 
