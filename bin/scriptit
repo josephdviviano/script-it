@@ -4,14 +4,15 @@
     _) (_ |  | |_) |_ - | |_  | github.com/josephdviviano/script-it
                |              |
 
-    scriptit list                 -- lists all available modules
-    scriptit help module          -- prints help for module
-    scriptit check setup          -- checks installation
-    scriptit check inputs         -- checks input files for experiment
-    scriptit generate             -- generate master script
-    scriptit render script output -- render master script to output script
-    scriptit folder               -- generate input folder structure
-    scriptit clean                -- delete output files
+    scriptit list modules             -- lists all available modules
+    scriptit list subjects experiment -- lists all subjects in experiment
+    scriptit help module              -- prints help for module
+    scriptit check setup              -- checks installation
+    scriptit check inputs             -- checks input files for experiment
+    scriptit generate                 -- generate master script
+    scriptit render script output     -- render master script to output script
+    scriptit folder                   -- generate input folder structure
+    scriptit clean                    -- delete output files
 """
 import os, sys, stat
 import logging
@@ -124,6 +125,7 @@ def get_modules(interactive=False, used=None):
     else:
         print('modules available in {}:\n'.format(DIR_MODULES))
         sit.utilities.print_list_cols(module_list)
+
 
 def get_mode(expt):
     """
@@ -363,12 +365,29 @@ def parse_master(script):
     return masterData, foundModules
 
 
+def subject_list(experiment):
+    """prints all subjects in experiment as a BASH list to STDOUT"""
+
+    check_environment(mode='quiet')
+    experiment_dir = os.path.join(DIR_DATA, experiment)
+    if not os.path.isdir(experiment_dir):
+        logger.error('experiment {} does not exist'.format(experiment_dir))
+        sys.exit(1)
+
+    subjects = sit.utilities.get_subj(experiment_dir)
+    output = '"'
+    for subj in subjects:
+        output+='{} '.format(subj)
+    output = output.strip()
+    output+='"'
+    os.system('echo {}'.format(output))
+
+
 def folder():
     """
     Generates a set of scriptit folders with defined EXPT, MODE, SESS, and RUN
     subfolders.
     """
-
     # make sure we have the appropriate permissions for the top directory
     if sit.utilities.has_permissions(DIR_DATA) == False:
         sys.exit()
@@ -656,8 +675,10 @@ if __name__ == "__main__":
     else:
         nargs = len(sys.argv)
 
-    if nargs == 2 and sys.argv[1] == 'list':
+    if nargs == 3 and sys.argv[1] == 'list' and sys.argv[2] == 'modules':
         get_modules()
+    elif nargs == 4 and sys.argv[1] == 'list' and sys.argv[2] == 'subjects':
+        subject_list(sys.argv[3])
     elif nargs == 3 and sys.argv[1] == 'help':
         get_help(sys.argv[2])
     elif nargs == 3 and sys.argv[1] == 'check' and sys.argv[2] == 'setup':
