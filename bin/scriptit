@@ -14,7 +14,7 @@
     scriptit folder                   -- generate input folder structure
     scriptit clean                    -- delete output files
 """
-import os, sys, stat
+import os, sys, stat, re
 import logging
 from copy import copy
 import scriptit as sit
@@ -29,11 +29,491 @@ logging.basicConfig(level=logging.WARN, format="[%(name)s] %(levelname)s: %(mess
 logger = logging.getLogger(os.path.basename(__file__))
 
 
+def selector_float():
+    """
+    Prompts the user to input a floating-point number.
+    """
+    option = raw_input('#: ') # have the user enter a number
+
+    # ensure response is non-negative
+    if option == 'stop':
+        return 'stop'
+    if option == '':
+        option = -1
+
+    # check input
+    try:
+        if float(option) >= float(0):
+            response = float(option)
+            return response
+        else:
+            print('ERROR: input must be positive.')
+            return None
+    except:
+        print('ERROR: input must be a float.')
+        return None
+
+
+def selector_int():
+    """
+    Prompts the user to input a integer number.
+    """
+    option = raw_input('#: ') # have the user enter a number
+
+    if option == 'stop':
+        return 'stop'
+    if option == '':
+        option = -1
+
+    # check input
+    try:
+        if int(option) >= 0:
+            response = int(option)
+            return response
+        else:
+            print('ERROR: input must be positive.')
+            return None
+    except:
+        print('ERROR: input must be an integer.')
+        return None
+
+
+def selector_list(item_list, sort=True):
+    """
+    Prompts the user to select from an item in the supplied list.
+    """
+    if type(item_list) != list:
+        raise TypeError('ERROR: input to selector_list must be a list!')
+
+    if sort:
+        item_list.sort()
+
+    # print the options, and their numbers
+    numbered_list = []
+    for i, item in enumerate(item_list):
+        numbered_list.append('{}: {}'.format(str(i+1), item))
+    print_list_cols(numbered_list)
+
+    # retrieve the option number
+    option = raw_input('option #: ')
+
+    # check input
+    if option == 'stop':
+        return 'stop'
+    if option == '':
+        option = 0
+
+    try:
+        response = item_list[int(option)-1]
+    except:
+        print('ERROR: option # invalid.')
+        return None
+
+    if int(option) == 0:
+        print('ERROR: option # invalid.')
+        return None
+
+    if response == '?':
+        response = raw_input('custom input: ')
+        response.strip(' ')
+
+    return response
+
+
+def print_list(lst):
+    """
+    Prints all the items in a list.
+    """
+    for item in lst:
+        print('    {}'.format(item))
+
+
+def print_list_cols(l):
+    """
+    Prints a list in two columns, real pretty like.
+    """
+    while len(l) % 3 != 0:
+        l.append(" ")
+
+    split = len(l)/3
+    l1 = l[0:split]
+    l2 = l[split:split*2]
+    l3 = l[split*2:]
+
+    l = [l1, l2, l3]
+
+    for x in zip(*l):
+        print "{0:<25s} {1:<25s} {2}".format(*x)
+
+
+def has_permissions(directory):
+    if os.access(directory, 7) == True:
+        flag = True
+    else:
+        print('ERROR: No write access to directory {}'.format(directory))
+        flag = False
+    return flag
+
+
+def check_os():
+    """
+    Ensures the user isn't Bill Gates.
+    """
+    import platform
+
+    operating_system = platform.system()
+    if operating_system == 'Windows':
+        sys.exit('ERROR: Windows detected. scriptuit requires Unix-like OS.')
+
+
+def touch(f):
+    """
+    Touches the file f. Used to create placeholders for actual stage outputs
+    in scriptuit folders (to save on disk space).
+    """
+    with open(f, 'a'):
+        os.utime(f, None)
+
+
+def purge(files, replace=False):
+    """
+    Takes a list of filenames and attempts to remove them.
+    """
+    if len(files) > 0:
+        for f in files:
+            os.remove(f)
+            if replace:
+                touch(f)
+
+
+def find_files(directory, include, exclude=None, level=1):
+    """
+    Finds all files in the given directory including some pattern, and
+    excluding any directories matching some pattern if defined.
+    """
+    fnames = []
+    assert os.path.isdir(directory)
+    num_sep = directory.count(os.path.sep) # n dirs already in the supplied path
+    for pth, dirs, files in os.walk(directory, topdown=True):
+
+        # remove directories lower that n levels
+        num_sep_this = pth.count(os.path.sep)
+        if num_sep + level <= num_sep_this:
+            del dirs[:]
+
+        # exclude files (protected)
+        if exclude:
+            dirs[:] = [d for d in dirs if exclude not in d]
+
+        for f in files:
+            if include in f:
+                fnames.append(os.path.join(pth, f))
+    yield fnames
+    return
+
+
+def writer(f, p_list, command):
+    """
+    Writes lines to the master script.
+    """
+    f.write(command+'\n')
+    p_list.append(command)
+
+    return p_list
+
+
+def get_date_user():
+    """
+    Returns a human timestamp, the UID, and a machine timestamp.
+    """
+    import time
+    import getpass
+
+    datetime = time.strftime("%Y/%m/%d -- %H:%M:%S")
+    user = getpass.getuser()
+    f_id = time.strftime("%y%m%d")
+
+    return datetime, user, f_id
+
+
+def mangle_string(string):
+    """
+    Turns an arbitrary string into a decent foldername/filename
+    (no underscores allowed)!
+    """
+    string = string.replace(' ', '-')
+    string = string.strip(",./;'[]\|_=+<>?:{}!@#$%^&*()`~")
+    string = string.strip('"')
+
+    return string
+
+
+def get_subj(directory):
+    """
+    Gets all folder names (i.e., subjects) in a directory (of subjects).
+    Removes hidden folders.
+    """
+    subjects = []
+    for subj in os.walk(directory).next()[1]:
+        if os.path.isdir(os.path.join(directory, subj)) == True:
+            subjects.append(subj)
+    subjects.sort()
+    subjects = filter(lambda x: x.startswith('.') == False, subjects)
+
+    return subjects
+
+
+def get_header(filename):
+    """
+    Returns each line of the module header as a list.
+    """
+    header = []
+    f = open(filename, 'rb')
+
+    for i, l in enumerate(f.readlines()):
+
+        # check for shebang
+        if i == 0:
+            if not l.startswith('#!/bin/bash'):
+                raise SyntaxError('ERROR: module {} does not contain BASH shebang'.format(filename))
+
+        # parse header until the comments dissapear
+        else:
+            if l[0] == '#':
+                l = l.lstrip('#').rstrip('\n').strip()
+                header.append(l)
+            else:
+                break
+
+    return header
+
+
+def get_body(filename):
+    """
+    Returns each line of the module body as a list.
+    """
+    body = []
+    header = True
+
+    f = open(filename, 'rb')
+
+    for i, l in enumerate(f.readlines()):
+
+        # check for shebang
+        if i == 0:
+            if not l.startswith('#!/bin/bash'):
+                raise SyntaxError('ERROR: module {} does not contain BASH shebang'.format(filename))
+
+        # skip header
+        if header:
+            if l[0] == '#':
+                continue
+            else:
+                body.append(l)
+                header = False
+                continue
+
+        body.append(l)
+        #body.append(l.rstrip('\n').strip())
+
+    return body
+
+
+def get_opts(header, args):
+    """
+    Returns the options for the module as a list of lists.
+    The options are found in square brackets in-line with each option, e.g.,
+    n_repeats    Number of times to repeat operation on input [int]
+    """
+    options = []
+    if not args:
+        return None
+
+    for arg in args:
+        optline = filter(lambda x: x.split(' ')[0] == '{}:'.format(arg)
+                               and x.count('[') == 1
+                               and x.count(']') == 1, header)
+        if len(optline) == 1:
+            opt = optline[0].split('[')[1].split(']')[0]
+            options.append([arg, opt])
+
+    return options
+
+
+def get_line(header, pattern):
+    """
+    Finds a entry in a list starting with the defined pattern. Returns
+    everything else on that line as a list. Removes all empty values, if none
+    are found, returns None.
+    """
+    for h in header:
+        h = h.strip('# \n').lstrip(' ')
+        if h.startswith(pattern):
+
+            # remove empty fields, and the prereq tag
+            h = filter(lambda x: '' != x, h.split(' '))
+            h.remove(pattern)
+            if len(h) == 0:
+                return None
+            else:
+                return(h)
+
+
+def get_rendered_module(moduleBody, line):
+    """
+    Takes the moduleBody list (obtained with get_body()) and the matching line
+    from the master script to fill in all command-line arguments. This 'hard-
+    codes' the rendered script.
+    """
+    for i, arg in enumerate(line.split(' ')):
+        if i == 0:
+            continue
+
+        # find reference to BASH-format command line argument e.g., ${1} or $1
+        regex1 = re.compile('\$\{' + str(i) + '\}')
+        regex2 = re.compile('\$' + str(i))
+        for j, moduleLine in enumerate(moduleBody):
+            if regex1.search(moduleLine):
+                moduleBody[j] = moduleLine.replace('${' + str(i) + '}', arg)
+                break
+            elif regex2.search(moduleLine):
+                moduleBody[j] = moduleLine.replace('$' + str(i), arg)
+                break
+            else:
+                pass
+
+    return moduleBody
+
+
+def check_match(a, b):
+    """
+    Checks if prerequisite a matches any item in b, ignoring cases.
+    """
+    for item in b:
+        r = re.compile('^{}'.format(a.lower().replace('*','.*')))
+        if r.match(item.lower()):
+            return
+
+    # if we get this far, nothing was matched
+    raise
+
+
+def check_prerequisites(prerequisites, usedModules):
+    """
+    For each prerequisite in the list 'prerequisites', ensures there is a
+    matching entry in the list 'usedModules'. Any prerequisite can contain a
+    wildcard e.g., init_*, which will accept any used module starting with
+    'init_'. This isn't case sensitive.
+
+    If this function fails for any prerequisite, it raises an exception.
+    """
+    for prereq in prerequisites:
+        try:
+            check_match(prereq, usedModules)
+        except:
+            raise ValueError('ERROR: prerequisite {} not met'.format(prereq))
+
+
+def parse(module, usedModules=[], outputFiles=[], verbose=False):
+    """
+    Parses a scriptuit header. First this checks prerequisites modules have been
+    run. It then records the output prefix, and asks the user a series of
+    questions to fill in the module arguments.
+
+    Returns the module name and the full string that should be passed to the
+    master scriptuit file.
+    """
+    moduleName = os.path.basename(module)
+    header  = get_header(module)
+    prereq  = get_line(header, 'prereq:')
+    output  = get_line(header, 'output:')
+    args    = get_line(header, moduleName)
+    options = get_opts(header, args)
+
+    if verbose:
+        for h in header:
+            print(h)
+
+    if args:
+        n_inputs = len(filter(lambda x: 'input' == x.lower(), args))
+    else:
+        n_inputs = 0
+
+    if output:
+        assert len(output) == 1, 'ERROR: More than one output defined for {}'.format(moduleName)
+    inputFile = None # useless default value ... to remove?
+
+    if prereq:
+        try:
+            check_prerequisites(prereq, usedModules)
+        except ValueError as err:
+            raise
+
+    # get the input name from the last item in the used list
+    if n_inputs > 0:
+        assert n_inputs == 1, 'ERROR: More than one input defined for {}'.format(moduleName)
+        assert len(outputFiles) > 0, 'ERROR: module {} has input defined but no outputs have been generated yet'.format(moduleName)
+        inputFile = outputFiles[-1] # always use the most recent file as input
+
+    if verbose:
+        print('# of inputs: {}'.format(n_inputs))
+        print('output name: {}'.format(output))
+        print('module name: {}'.format(moduleName))
+        print('input name:  {}'.format(inputFile))
+        print('output list: {}'.format(outputFiles))
+        print('module list: {}'.format(usedModules))
+
+    # initialize the command with the module name and input if required
+    if n_inputs == 0:
+        command = moduleName
+    else:
+        command = '{} {}'.format(moduleName, inputFile)
+
+    if options:
+        # loop through options list and build up command line
+        for opt in options:
+
+            print('\n{}: {}'.format(opt[0], ' '.join(get_line(header, '{}:'.format(opt[0])))))
+
+            if opt[1].startswith('list'):
+                response = selector_list(opt[1].split(':')[1].strip().split(' '))
+            elif opt[1].startswith('float'):
+                response = selector_float()
+            elif opt[1].startswith('int'):
+                response = selector_int()
+            else:
+                raise SyntaxError('ERROR: malformed option found in module {} header.'.format(moduleName))
+
+            if response is not None:
+                command = '{} {}'.format(command, response)
+            else:
+                raise ValueError
+
+    # append output file name to list
+    if output:
+        outputFiles.append(output[0]) # output is returned as a list
+
+    return outputFiles, command
+
+
+def print_dirs(in_dir):
+    """
+    Prints the directories found within the input directory.
+    """
+    dir_list = [d for d in os.listdir(in_dir) if
+                           os.path.isdir(os.path.join(in_dir, d)) == True]
+    dir_list.sort()
+    for d in dir_list:
+        print('    + ' + d)
+    if len(dir_list) == 0:
+        print('None found.')
+
+
 def edit_mode(mode):
     """edits single image modalities within a subject folder."""
 
     print('\nCurrent sessions: ')
-    sit.utilities.print_dirs(mode)
+    print_dirs(mode)
 
     print('\nHow many sessions should there be?')
     sessions = raw_input('Sessions: ' )
@@ -64,7 +544,7 @@ def edit_subject(subject):
     """generates subject directories"""
 
     print('\nCurrent image modalities:')
-    sit.utilities.print_dirs(subject)
+    print_dirs(subject)
 
     flag = 0
     while flag == 0:
@@ -115,7 +595,7 @@ def get_modules(interactive=False, used=None):
 
     if interactive == True:
         try:
-            selection = sit.utilities.selector_list(module_list)
+            selection = selector_list(module_list)
             used.append(selection)
             return selection, used
 
@@ -124,7 +604,7 @@ def get_modules(interactive=False, used=None):
 
     else:
         print('modules available in {}:\n'.format(DIR_MODULES))
-        sit.utilities.print_list_cols(module_list)
+        print_list_cols(module_list)
 
 
 def get_mode(expt):
@@ -149,7 +629,7 @@ def get_mode(expt):
 
     mode_list = list(set(mode_list)) # keep unique entries
     try:
-        selection = sit.utilities.selector_list(mode_list)
+        selection = selector_list(mode_list)
         return selection
     except:
         return None
@@ -159,7 +639,7 @@ def get_experiments(check=None):
     Prints the available experiments. Optionally prompts the user to select
     one.
     """
-    if sit.utilities.has_permissions(DIR_DATA) == False:
+    if has_permissions(DIR_DATA) == False:
         logger.error('ERROR: You do not have write permission to {}'.format(DIR_DATA))
         sys.exit(1)
 
@@ -168,7 +648,7 @@ def get_experiments(check=None):
                          if os.path.isdir(os.path.join(DIR_DATA, d))]
 
     try:
-        selection = sit.utilities.selector_list(expt_list)
+        selection = selector_list(expt_list)
 
         # this is for the commandline usage
         if check == 'check':
@@ -210,7 +690,7 @@ def check_environment(mode='verbose'):
     if os.path.isdir(DIR_DATA) == False:
         logger.error('scriptit data directory does not exist: {}'.format(DIR_DATA))
         failed = True
-    if sit.utilities.has_permissions(DIR_DATA) == False:
+    if has_permissions(DIR_DATA) == False:
         logger.error("no write permissions for {}".format(DIR_DATA))
         failed = True
 
@@ -279,12 +759,12 @@ def check_directories(expt):
     This checks the image modalities for each subject in an experiment. It also
     reports the number of subjects with each kind of image modality.
     """
-    if sit.utilities.has_permissions(os.path.join(DIR_DATA, expt)) == False:
+    if has_permissions(os.path.join(DIR_DATA, expt)) == False:
         sys.exit('ERROR: you do not have permissions to edit this experiment.')
 
     # attempt to access the subjects for a given experiment
     try:
-        subjects = sit.utilities.get_subj(os.path.join(DIR_DATA, expt))
+        subjects = get_subj(os.path.join(DIR_DATA, expt))
     except:
         logger.error('experiment path is incorrect {}'.format(expt))
 
@@ -336,11 +816,11 @@ def parse_master(script):
 
     # verify input script is formatted properly
     try:
-        assert sit.utilities.get_line(masterData, 'DIR_MODULES'), 'ERROR: DIR_MODULES not defined.'
-        assert sit.utilities.get_line(masterData, 'DIR_DATA'), 'ERROR: DIR_DATA not defined.'
-        assert sit.utilities.get_line(masterData, 'DIR_EXPT'), 'ERROR: DIR_EXPT not defined.'
-        assert sit.utilities.get_line(masterData, 'DATA_TYPE'), 'ERROR: DATA_TYPE not defined.'
-        assert sit.utilities.get_line(masterData, 'ID'), 'ERROR: ID not defined.'
+        assert get_line(masterData, 'DIR_MODULES'), 'ERROR: DIR_MODULES not defined.'
+        assert get_line(masterData, 'DIR_DATA'), 'ERROR: DIR_DATA not defined.'
+        assert get_line(masterData, 'DIR_EXPT'), 'ERROR: DIR_EXPT not defined.'
+        assert get_line(masterData, 'DATA_TYPE'), 'ERROR: DATA_TYPE not defined.'
+        assert get_line(masterData, 'ID'), 'ERROR: ID not defined.'
     except AssertionError as err:
         logger.error(err)
         sys.exit(1)
@@ -374,7 +854,7 @@ def subject_list(experiment):
         logger.error('experiment {} does not exist'.format(experiment_dir))
         sys.exit(1)
 
-    subjects = sit.utilities.get_subj(experiment_dir)
+    subjects = get_subj(experiment_dir)
     output = '"'
     for subj in subjects:
         output+='{} '.format(subj)
@@ -389,7 +869,7 @@ def folder():
     subfolders.
     """
     # make sure we have the appropriate permissions for the top directory
-    if sit.utilities.has_permissions(DIR_DATA) == False:
+    if has_permissions(DIR_DATA) == False:
         sys.exit()
 
     # make experiment directory
@@ -397,13 +877,13 @@ def folder():
     data_list = [d for d in os.listdir(DIR_DATA) if
                             os.path.isdir(os.path.join(DIR_DATA, d)) == True]
     data_list.append('***NEW***')
-    selection = sit.utilities.selector_list(data_list)
+    selection = selector_list(data_list)
 
     if selection == '***NEW***':
         try:
             print('Input new experiment name:')
             name = raw_input('Name: ')
-            name = sit.utilities.mangle_string(name)
+            name = mangle_string(name)
             os.system('mkdir ' + os.path.join(DIR_DATA, name))
             print('Making experiment folder: ' + name)
         except:
@@ -415,12 +895,12 @@ def folder():
     expt = os.path.join(DIR_DATA, name)
 
     # ensure we have the appropriate permissions (might be redundant)
-    if sit.utilities.has_permissions(expt) == False:
+    if has_permissions(expt) == False:
         sys.exit()
 
     # print a list of the subject, if they exist
     print('Current subjects: ')
-    sit.utilities.print_dirs(expt)
+    print_dirs(expt)
 
     # move on to a subject loop
     flag = 0
@@ -429,7 +909,7 @@ def folder():
         print('\nInput subject name:')
 
         subject = raw_input('Subject: ')
-        subject = sit.utilities.mangle_string(subject)
+        subject = mangle_string(subject)
         print('Editing subject ' + str(subject))
 
         # make the subject folder, if it does not exist
@@ -452,19 +932,19 @@ def clean(script):
     """
     Removes stages of a script-it pipeline.
     """
-    sit.utilities.check_os()
+    check_os()
     check_environment('quiet')
     masterData, foundModules = parse_master(script)
 
-    DIR_MODULES = sit.utilities.get_line(masterData, 'DIR_MODULES')[0]
-    DIR_DATA = sit.utilities.get_line(masterData, 'DIR_DATA')[0]
-    expt = sit.utilities.get_line(masterData, 'DIR_EXPT')[0]
-    mode = sit.utilities.get_line(masterData, 'DATA_TYPE')[0]
-    #ID = sit.utilities.get_line(masterData, 'ID')[0] # ignore ID for now, ID to depricate?
+    DIR_MODULES = get_line(masterData, 'DIR_MODULES')[0]
+    DIR_DATA = get_line(masterData, 'DIR_DATA')[0]
+    expt = get_line(masterData, 'DIR_EXPT')[0]
+    mode = get_line(masterData, 'DATA_TYPE')[0]
+    #ID = get_line(masterData, 'ID')[0] # ignore ID for now, ID to depricate?
 
     # get the subjects
     print('clean all subjects, or some?')
-    decision = get_loop(sit.utilities.selector_list, ['all', 'some'])
+    decision = get_loop(selector_list, ['all', 'some'])
 
     if decision == 'stop':
         sys.exit()
@@ -472,11 +952,11 @@ def clean(script):
     elif decision == 'some':
         flag = 0
         subjects = []
-        subj_list = sit.utilities.get_subj(os.path.join(DIR_DATA, expt))
+        subj_list = get_subj(os.path.join(DIR_DATA, expt))
 
         while flag == 0:
             print("select subject to clean. type 'stop' to stop.")
-            subj = get_loop(sit.utilities.selector_list, subj_list)
+            subj = get_loop(selector_list, subj_list)
 
             if subj == 'stop':
                 flag = 1
@@ -485,23 +965,23 @@ def clean(script):
             subjects.append(subj)
             subj_list.remove(subj)
             print('the following subjects are slated for clean:\n')
-            sit.utilities.print_list(subjects)
+            print_list(subjects)
 
     elif decision == 'all':
-        subjects = sit.utilities.get_subj(os.path.join(DIR_DATA, expt))
+        subjects = get_subj(os.path.join(DIR_DATA, expt))
         print('all subjects slated for clean.')
 
     # select cutoff module
     print('select cutoff module. the outputs of this module and all downstream modules will be removed.')
-    cutoff = sit.utilities.selector_list(foundModules, sort=False)
+    cutoff = selector_list(foundModules, sort=False)
     modules = foundModules[foundModules.index(cutoff):]
 
     remove = []
     for module in modules:
         # parse header, get list of prefixes to remove
-        header  = sit.utilities.get_header(os.path.join(DIR_MODULES, module))
-        output  = sit.utilities.get_line(header, 'output:')
-        others  = sit.utilities.get_line(header, 'others:')
+        header  = get_header(os.path.join(DIR_MODULES, module))
+        output  = get_line(header, 'output:')
+        others  = get_line(header, 'others:')
 
         if output:
             remove.append(output[0])
@@ -512,22 +992,22 @@ def clean(script):
     remove.sort()
 
     print('The following file types are slated to be removed:\n')
-    sit.utilities.print_list(remove)
+    print_list(remove)
 
     # loop through subjects, removing specified files in the selected modality
     for prefix in remove:
         for subj in subjects:
-            to_remove = [x for x in sit.utilities.find_files(
+            to_remove = [x for x in find_files(
                  os.path.join(DIR_DATA, expt, subj, mode), prefix, exclude='RUN', level=2)][0]
-            sit.utilities.purge(to_remove)
+            purge(to_remove)
 
 def render(script, output):
     """
     Renders the submitted master script.
     """
-    sit.utilities.check_os()
+    check_os()
     check_environment('quiet')
-    datetime, user, f_id = sit.utilities.get_date_user()
+    datetime, user, f_id = get_date_user()
     masterData, foundModules = parse_master(script)
 
     # initalize the output script
@@ -551,11 +1031,11 @@ def render(script, output):
                 script=script,
                 user=user,
                 datetime=datetime,
-                DIR_MODULES=sit.utilities.get_line(masterData, 'DIR_MODULES')[0],
-                DIR_DATA=sit.utilities.get_line(masterData, 'DIR_DATA')[0],
-                DIR_EXPT=sit.utilities.get_line(masterData, 'DIR_EXPT')[0],
-                DATA_TYPE=sit.utilities.get_line(masterData, 'DATA_TYPE')[0],
-                ID=sit.utilities.get_line(masterData, 'ID')[0]))
+                DIR_MODULES=get_line(masterData, 'DIR_MODULES')[0],
+                DIR_DATA=get_line(masterData, 'DIR_DATA')[0],
+                DIR_EXPT=get_line(masterData, 'DIR_EXPT')[0],
+                DATA_TYPE=get_line(masterData, 'DATA_TYPE')[0],
+                ID=get_line(masterData, 'ID')[0]))
 
     # now, copy the contents of each script-it module to output, sans header
     for module in foundModules:
@@ -564,10 +1044,10 @@ def render(script, output):
             if line.startswith(module):
 
                 # get module body (strip header)
-                moduleBody = sit.utilities.get_body(os.path.join(DIR_MODULES, module))
+                moduleBody = get_body(os.path.join(DIR_MODULES, module))
 
                 # hard code command-line variables
-                moduleBody = sit.utilities.get_rendered_module(moduleBody, line)
+                moduleBody = get_rendered_module(moduleBody, line)
                 break
 
         if moduleBody:
@@ -580,16 +1060,16 @@ def generate():
     """
     Runs the master script generator.
     """
-    sit.utilities.check_os()
+    check_os()
     check_environment('quiet')
-    datetime, user, f_id = sit.utilities.get_date_user()
+    datetime, user, f_id = get_date_user()
 
     # define experiment directory and check permissions
     print('\nSelect experiment:')
     expt = get_loop(get_experiments)
     if expt == 'stop':
         sys.exit()
-    if sit.utilities.has_permissions(os.path.join(DIR_DATA, expt)) == False:
+    if has_permissions(os.path.join(DIR_DATA, expt)) == False:
         logger.error("You do not have permission to write in {}".format(os.path.join(DIR_DATA, expt)))
         sys.exit(1)
 
@@ -602,7 +1082,7 @@ def generate():
     print('\nmodality: {}\ninput ID for this run of scriptit:'.format(mode))
     ID = raw_input('ID: ')
     logger.debug('ID before mangling: {}'.format(ID))
-    ID = sit.utilities.mangle_string(ID)
+    ID = mangle_string(ID)
     logger.debug('ID after mangling: {}'.format(ID))
     master = 'master_{}_{}.sh'.format(f_id, ID)
 
@@ -643,8 +1123,8 @@ def generate():
 
         # parses module, write pipeline commands
         try:
-            outputFiles, command = sit.utilities.parse(os.path.join(DIR_MODULES, module), usedModules, outputFiles)
-            p_list = sit.utilities.writer(f, p_list, command)
+            outputFiles, command = parse(os.path.join(DIR_MODULES, module), usedModules, outputFiles)
+            p_list = writer(f, p_list, command)
         except Exception as err:
             if len(usedModules) > 0:
                 usedModules.pop() # remove last module from the used list
@@ -653,7 +1133,7 @@ def generate():
             continue
 
         print('\nCurrent pre-processing pipeline:')
-        sit.utilities.print_list(p_list)
+        print_list(p_list)
         response = raw_input("Type 'stop' to stop, else continue: ")
         if response == 'stop':
             flag = True
@@ -695,4 +1175,3 @@ if __name__ == "__main__":
         clean(sys.argv[2])
     else:
         print(__doc__)
-
