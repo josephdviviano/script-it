@@ -1,6 +1,6 @@
 ![script-it](assets/logo.png "script-it: a platform for BASH pipeline development")
 
-script-it is an environment for developing pipelines out of BASH 'modules'. It is intended to produce portable BASH analysis scripts out of small code chunks that non-programmers can contribute.
+scriptit is an environment for developing pipelines out of BASH 'modules'. It is intended to produce portable BASH analysis scripts out of small code chunks that non-programmers can contribute.
 
 Written by Joseph D. Viviano 2016.
 
@@ -19,13 +19,13 @@ script-it depends on python > 2.6. The scripts it generates likely rely on exter
 Quickstart:
 
 + `git clone` this repository to a directory of your choosing.
-+ Add `script-it/bin` to your PATH.
-+ Add `script-it` to your PYTHONPATH.
++ Add `scriptit/bin` to your PATH.
++ Add `scriptit` to your PYTHONPATH.
 + Create a data directory somewhere, and add some data.
-+ Set `script-it_DATA` to point to your data folder.
-+ Set `script-it_MODULES` to point to a folder containing script-it modules.
-+ Generate a master script using `script-it generate`.
-+ Render a final BASH script using `script-it render masterscript output`
++ Set `SCRIPTIT_DATA` to point to your data folder.
++ Set `SCRIPTIT_MODULES` to point to a folder containing script-it modules.
++ Generate a master script using `scriptit generate`.
++ Render a final BASH script using `scriptit render masterscript output`
 
 Optional:
 
@@ -66,13 +66,13 @@ script-it reads this header in order to ask the user reasonable questions on how
 
 Here's a walk through of the various header components:
 
-**usage**
+**Usage**
 
     # module_name input list_variable float_variable int_variable
 
 This line contains the name of the module (the file name of the module must match the module name listed here), followed by the names of each command-line argument.
 
-**arguments**
+**Arguments**
 
     # input:          input prefix, to find input files. auto-determined by script-it
     # list_variable:  a list of strings for the user to select from [list: apples banannas oranges ?]
@@ -91,7 +91,7 @@ Here, we see the 4 arguments available in script-it.
 
 Each argument in the usage line must have an line under arguments, otherwise the pipeline will fail.
 
-**flow control**
+**Flow control**
 
     # output: example_output
     # prereq: init_pipeline
@@ -100,13 +100,13 @@ Here, we see the output prefix (the first part of the filename of the main outpu
 
 In this case, init_pipeline is used to copy the files in the RUN folders to the SESS folder with a known file prefix, so that the `example` module know what the input prefix is.
 
-**documentation**
+**Documentation**
 
     # This is where you can put more details about your module, for people to read.
 
 This is simply usage instructions for the user. Please write this.
 
-**variable assignment**
+**Variable assignment**
 
     input=${1}
     list_variable=${2}
@@ -115,7 +115,7 @@ This is simply usage instructions for the user. Please write this.
 
 When your script-it module is executed, the values selected will be assigned to the BASH variables here. The number of, and names of, these variables should match those in the usage line.
 
-**module anatomy**
+**Module Anatomy**
 
 A module will typically loop through sessions, and then runs, taking an input file prefix (such as `phys_detrended`), performing a number of operations on that file (producing intermediate files worth keeping, or in other cases, temporary files that will be removed by the module's end), and usually outputting a file (one for each run) with a new prefix (such as `phys_lowpass`). The anatomy of a call to an output file follows the convention
 
@@ -172,7 +172,8 @@ The run folders are used to separate data taken at the same time point. For exam
 
 Usage
 -----
-**script-it generate**
+
+**scriptit generate**
 
 This walks you through the construction of a pipeline for a single image modality within a single experiment. The command line interface allows you to chain together modules, keeping track of inputs/outputs, and the prerequisites for each module.
 
@@ -182,7 +183,7 @@ Each run of script-it is associated with an `ID`. This allows you to keep differ
 
 This generates a single master script with your modules chained together in order after you issue the stop command. This master script can be used to generate full rendered scripts for each participant, or can be used to analyze your data.
 
-**script-it render**
+**scriptit render**
 
 This 'renders' or hard-codes the settings defined in the master script to an output file using the following syntax:
 
@@ -190,33 +191,31 @@ This 'renders' or hard-codes the settings defined in the master script to an out
 
 This script will be completely independent from script-it and is therefore a portable pipeline that can be shared with others, or used to process your data.
 
-**script-it clean**
+**scriptit clean**
 
 Allows you to find and destroy files with a given prefix, for all, or some of your subjects.
 
-**script-it list**
+**scriptit list modules**
 
-Prints a list of the modules found in `script-it_MODULES`.
+Prints a list of the modules found in `SCRIPTIT_MODULES`.
 
-**script-it help modulename**
+**scriptit list subjects experiment**
+
+Prints a BASH list of all subject folders in the input experiment. Useful for looping over subjects in the shell.
+
+**scriptit help modulename**
 
 Prints the help for the selected module.
 
-**script-it check setup**
+**scriptit check setup**
 
 Checks your installation paths for errors, and reports on any misconfiguration.
 
-**script-it check inputs**
+**scriptit check inputs**
 
 Checks your `script-it_DATA` folder for errors in folder structure and missing input files.
 
-**sit-folder**
+**scriptit folder**
 
 This simple tool will help you generate folders properly-formatted for script-it. It is run on a per-subject basis, but a clever user could manually duplicate a single folder structure for as many participants as needed. These folders will automatically be generated in the designated working directory.
-
-**sit-queue**
-
-This can be used to submit your rendered script to a queue system for a defined set of subjects:
-
-    sit-queue script subjectList queneName
 
