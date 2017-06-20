@@ -20,14 +20,13 @@ Quickstart:
 
 + `git clone` this repository to a directory of your choosing.
 + Add `scriptit/bin` to your PATH.
-+ Add `scriptit` to your PYTHONPATH.
 + Create a data directory somewhere, and add some data.
 + Set `SCRIPTIT_DATA` to point to your data folder.
 + Set `SCRIPTIT_MODULES` to point to a folder containing script-it modules.
 + Generate a master script using `scriptit generate`.
 + Render a final BASH script using `scriptit render masterscript output`
 
-Optional:
+Optional and recommended for large experiments:
 
 + [Grid Engine](http://gridscheduler.sourceforge.net/) or [PBS](http://www.adaptivecomputing.com/products/open-source/torque/)
 
