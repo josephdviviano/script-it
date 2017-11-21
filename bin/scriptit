@@ -17,7 +17,6 @@
 import os, sys, stat, re
 import logging
 from copy import copy
-import scriptit as sit
 from fnmatch import fnmatch
 import textwrap
 
